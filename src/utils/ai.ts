@@ -43,12 +43,12 @@ const DANGEROUS_SITUATIONS = {
   'alone': { risk: '一人での作業', message: '難しそうな作業は、誰かと一緒にやった方が安全だよ' },
   'dark': { risk: '暗所での作業', message: '暗いところでの作業は危ないよ。明るくしてからやろうね' },
   'wet': { risk: '濡れた場所', message: '床が濡れてるね。滑らないようにゆっくり歩こう' }
-};
+} as const;
 
 // ヘルパー関数
 function generateActivityDescription(allDetections: string[], detectedSituations: Set<string>): string {
   const activities = Array.from(detectedSituations)
-    .map(situation => DANGEROUS_SITUATIONS[situation].risk)
+    .map(situation => DANGEROUS_SITUATIONS[situation as keyof typeof DANGEROUS_SITUATIONS]?.risk)
     .filter(Boolean);
 
   if (activities.length === 0) {
@@ -93,7 +93,7 @@ function generateWarningMessage(detectedSituations: string[]): string {
   }
 
   const messages = detectedSituations
-    .map(situation => DANGEROUS_SITUATIONS[situation].message)
+    .map(situation => DANGEROUS_SITUATIONS[situation as keyof typeof DANGEROUS_SITUATIONS]?.message)
     .filter(Boolean);
 
   return messages.join('\n');
@@ -111,10 +111,18 @@ async function analyzeContent(
 
   // 検出されたオブジェクトから作業内容を推測
   for (const detection of allDetections) {
-    if (DANGEROUS_SITUATIONS[detection]) {
+    if (DANGEROUS_SITUATIONS[detection as keyof typeof DANGEROUS_SITUATIONS]) {
       detectedSituations.add(detection);
-      risks.push(DANGEROUS_SITUATIONS[detection].risk);
+      risks.push(DANGEROUS_SITUATIONS[detection as keyof typeof DANGEROUS_SITUATIONS].risk);
     }
+  }
+
+  // SafeSearch による危険検出
+  if (['LIKELY', 'VERY_LIKELY'].includes(safeSearch.violence)) {
+    risks.push('危険な行動が検出されました');
+  }
+  if (['LIKELY', 'VERY_LIKELY'].includes(safeSearch.medical)) {
+    risks.push('医療的な危険が検出されました');
   }
 
   // 特定の組み合わせの検出（一人での作業）
@@ -158,109 +166,4 @@ export async function analyzeImage(imageData: ArrayBuffer): Promise<AnalysisResu
 export async function generateWarningAudio(analysis: AnalysisResult): Promise<ArrayBuffer> {
   const textToSpeak = `${analysis.activity}\n${analysis.environment}\n${analysis.warningMessage}`;
   return await elevenLabs.generateSpeech(textToSpeak);
-}
-    if (['LIKELY', 'VERY_LIKELY'].includes(safeSearch.violence)) {
-      reasons.push('危険な行動が検出されました');
-    }
-    if (['LIKELY', 'VERY_LIKELY'].includes(safeSearch.medical)) {
-      reasons.push('医療的な危険が検出されました');
-    }
-  }
-
-  // 特定の組み合わせの検出
-  const hasTools = allDetections.some(item => ['shovel', 'tool', 'knife', 'scissors'].includes(item));
-  const isAlone = allDetections.includes('person') && objects.filter(obj => obj.toLowerCase() === 'person').length === 1;
-  
-  if (hasTools && isAlone) {
-    reasons.push('一人での危険な道具の使用');
-  }
-
-  // 個別の危険要因の検出
-  for (const [keyword, situation] of Object.entries(DANGEROUS_SITUATIONS)) {
-    if (allDetections.some(item => item.includes(keyword))) {
-      reasons.push(situation);
-    }
-  }
-
-  return {
-    isDangerous: reasons.length > 0,
-    reasons
-  };
-}
-
-export async function async analyzeImage(imageData: ArrayBuffer): Promise<AnalysisResult> {
-  try {
-    // Google Cloud Vision APIで画像を分析
-    const [result] = await visionClient.annotateImage({
-      image: { content: Buffer.from(imageData) },
-      features: [
-        { type: 'OBJECT_LOCALIZATION' },
-        { type: 'LABEL_DETECTION' },
-        { type: 'SAFE_SEARCH_DETECTION' }
-      ]
-    });
-
-    const objects = result.localizedObjectAnnotations?.map(obj => obj.name) || [];
-    const labels = result.labelAnnotations?.map(label => label.description) || [];
-    const safeSearch = result.safeSearchAnnotation;
-
-    // 詳細な分析を実行
-    return await analyzeContent(objects, labels, safeSearch);
-  } catch (error) {
-    console.error('Error analyzing image:', error);
-    throw error;
-  }
-} {
-  try {
-    const base64Image = Buffer.from(imageData).toString('base64');
-    
-    console.log('Calling Vision API...');
-    const [result] = await visionClient.annotateImage({
-      image: {
-        content: base64Image
-      },
-      features: [
-        { type: 'OBJECT_LOCALIZATION' },
-        { type: 'LABEL_DETECTION' },
-        { type: 'TEXT_DETECTION' },
-        { type: 'SAFE_SEARCH_DETECTION' }
-      ]
-    });
-
-    console.log('Vision API Results:', {
-      objects: result.localizedObjectAnnotations?.map(obj => obj.name),
-      labels: result.labelAnnotations?.map(label => label.description),
-      safeSearch: result.safeSearchAnnotation
-    });
-
-    const objects = (result.localizedObjectAnnotations || []).map(obj => obj.name || '');
-    const labels = (result.labelAnnotations || []).map(label => label.description || '');
-
-    const dangerEvaluation = evaluateDanger(
-      objects,
-      labels,
-      result.safeSearchAnnotation
-    );
-
-    console.log('Danger evaluation:', dangerEvaluation);
-
-    return {
-      isDangerous: dangerEvaluation.isDangerous,
-      situation: dangerEvaluation.reasons.join('、')
-    };
-  } catch (error) {
-    console.error('Error analyzing image with Vision API:', error);
-    throw error;
-  }
-}
-
-export async function async generateWarningAudio(analysis: AnalysisResult): Promise<ArrayBuffer> {
-  // 音声化するテキストを生成
-  const textToSpeak = `${analysis.activity}\n${analysis.environment}\n${analysis.warningMessage}`;
-  
-  // ElevenLabsを使用して音声を生成
-  return await elevenLabs.generateSpeech(textToSpeak);
-} {
-  const warningMessage = `注意！${situation}が検出されました。すぐに確認してください。`;
-  return await elevenLabs.generateSpeech(warningMessage);
 }
