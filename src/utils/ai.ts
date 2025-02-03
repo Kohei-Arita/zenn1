@@ -15,7 +15,7 @@ interface AnalysisResult {
   activity: string;      // 作業内容の説明
   environment: string;   // 周囲の環境説明
   risks: string[];       // 検出された危険性
-  warningMessage: string; // 優しい警告メッセージ
+  informativeMessage: string; // 状況に応じた情報メッセージ
 }
 
 // 危険な状況の定義
@@ -87,14 +87,37 @@ function generateEnvironmentDescription(allDetections: string[], safeSearch: any
   return `周囲の環境は${environmentFactors.join('、')}です。`;
 }
 
-function generateWarningMessage(detectedSituations: string[]): string {
-  if (detectedSituations.length === 0) {
-    return 'お気をつけて作業を続けてくださいね。';
+function generateInformativeMessage(allDetections: string[], detectedSituations: string[]): string {
+  // 検出された物や状況に基づいて情報メッセージを生成
+  const messages: string[] = [];
+  
+  // 人の存在を確認
+  const personCount = allDetections.filter(item => item.toLowerCase() === 'person').length;
+  if (personCount > 0) {
+    messages.push(`${personCount}人の方がいらっしゃいますね。`);
   }
 
-  const messages = detectedSituations
+  // 作業や活動の種類を確認
+  const activities = new Set(allDetections.filter(item => 
+    ['working', 'cooking', 'cleaning', 'reading', 'writing', 'exercising'].includes(item.toLowerCase())
+  ));
+  if (activities.size > 0) {
+    messages.push(`${Array.from(activities).join('、')}をされているようですね。`);
+  }
+
+  // 危険に関する注意事項があれば追加
+  const safetyMessages = detectedSituations
     .map(situation => DANGEROUS_SITUATIONS[situation as keyof typeof DANGEROUS_SITUATIONS]?.message)
     .filter(Boolean);
+  
+  if (safetyMessages.length > 0) {
+    messages.push(...safetyMessages);
+  }
+
+  // デフォルトメッセージ
+  if (messages.length === 0) {
+    return 'いつも通り順調そうですね。何かお手伝いが必要でしたら、お声がけください。';
+  }
 
   return messages.join('\n');
 }
@@ -136,7 +159,7 @@ async function analyzeContent(
     activity: generateActivityDescription(allDetections, detectedSituations),
     environment: generateEnvironmentDescription(allDetections, safeSearch),
     risks,
-    warningMessage: generateWarningMessage(Array.from(detectedSituations))
+    informativeMessage: generateInformativeMessage(allDetections, Array.from(detectedSituations))
   };
 }
 
@@ -164,6 +187,6 @@ export async function analyzeImage(imageData: ArrayBuffer): Promise<AnalysisResu
 }
 
 export async function generateWarningAudio(analysis: AnalysisResult): Promise<ArrayBuffer> {
-  const textToSpeak = `${analysis.activity}\n${analysis.environment}\n${analysis.warningMessage}`;
+  const textToSpeak = `${analysis.activity}\n${analysis.environment}\n${analysis.informativeMessage}`;
   return await elevenLabs.generateSpeech(textToSpeak);
 }
