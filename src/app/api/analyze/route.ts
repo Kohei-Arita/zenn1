@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeImage, generateWarningAudio } from '@/utils/ai';
+import { analyzeImage, generateDescriptiveAudio } from '@/utils/ai';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,27 +38,21 @@ export async function POST(request: NextRequest) {
       const analysis = await analyzeImage(imageBuffer);
       console.log('Analysis completed:', analysis);
       
-      if (analysis.isDangerous && analysis.situation) {
-        console.log('Generating warning audio for situation:', analysis.situation);
-        // Generate warning audio using ElevenLabs
-        const audioContent = await generateWarningAudio(analysis.situation);
-        console.log('Audio generated, size:', audioContent.byteLength);
-        
-        // Return audio content with appropriate headers
-        return new NextResponse(audioContent, {
-          status: 200,
-          headers: {
-            'Content-Type': 'audio/mpeg',
-            'Content-Length': audioContent.byteLength.toString(),
-            'Cache-Control': 'no-cache',
-            'Content-Disposition': 'inline'
-          },
-        });
-      }
+      // Generate descriptive audio using ElevenLabs
+      console.log('Generating descriptive audio...');
+      const audioContent = await generateDescriptiveAudio(analysis);
+      console.log('Audio generated, size:', audioContent.byteLength);
       
-      console.log('No dangerous situation detected');
-      // If no dangerous situation detected, return empty response
-      return new NextResponse(null, { status: 204 });
+      // Return audio content with appropriate headers
+      return new NextResponse(audioContent, {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': audioContent.byteLength.toString(),
+          'Cache-Control': 'no-cache',
+          'Content-Disposition': 'inline'
+        },
+      });
     } catch (error) {
       console.error('Error processing image:', error);
       return NextResponse.json(

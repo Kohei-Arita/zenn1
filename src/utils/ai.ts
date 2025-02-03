@@ -12,9 +12,8 @@ const visionClient = new vision.ImageAnnotatorClient({
 });
 
 interface AnalysisResult {
-  activity: string;      // 作業内容の説明
+  activity: string;      // 活動内容の説明
   environment: string;   // 周囲の環境説明
-  risks: string[];       // 検出された危険性
   informativeMessage: string; // 状況に応じた情報メッセージ
 }
 
@@ -47,44 +46,78 @@ const DANGEROUS_SITUATIONS = {
 
 // ヘルパー関数
 function generateActivityDescription(allDetections: string[], detectedSituations: Set<string>): string {
-  const activities = Array.from(detectedSituations)
-    .map(situation => DANGEROUS_SITUATIONS[situation as keyof typeof DANGEROUS_SITUATIONS]?.risk)
-    .filter(Boolean);
+  const activities = new Set<string>();
 
-  if (activities.length === 0) {
-    return '特に危険な作業は検出されませんでした。';
+  // 一般的な活動の検出
+  const commonActivities = {
+    'cooking': '料理',
+    'cleaning': '掃除',
+    'reading': '読書',
+    'writing': '筆記',
+    'eating': '食事',
+    'working': '仕事',
+    'studying': '勉強',
+    'exercising': '運動',
+    'resting': '休息',
+    'talking': '会話',
+    'walking': '歩行'
+  };
+
+  for (const [key, value] of Object.entries(commonActivities)) {
+    if (allDetections.includes(key)) {
+      activities.add(value);
+    }
   }
 
-  return `現在、${activities.join('、')}をしているようです。`;
+  if (activities.size === 0) {
+    return '特に目立った活動は見られません。';
+  }
+
+  return `${Array.from(activities).join('、')}をされているようです。`;
 }
 
 function generateEnvironmentDescription(allDetections: string[], safeSearch: any): string {
   const environmentFactors = [];
 
-  // 明るさの検出
-  if (allDetections.includes('dark') || allDetections.includes('night')) {
-    environmentFactors.push('暗い場所');
+  // 場所の検出
+  const locations = {
+    'kitchen': '台所',
+    'bathroom': '浴室',
+    'garden': '庭',
+    'living room': 'リビング',
+    'bedroom': '寝室',
+    'office': 'オフィス',
+    'outdoor': '外',
+    'indoor': '室内'
+  };
+
+  for (const [key, value] of Object.entries(locations)) {
+    if (allDetections.includes(key)) {
+      environmentFactors.push(value);
+    }
   }
 
-  // 天気の検出
-  if (allDetections.includes('rain') || allDetections.includes('wet')) {
-    environmentFactors.push('濡れた場所');
-  }
+  // 環境の状態
+  const conditions = {
+    'bright': '明るい',
+    'dark': '暗め',
+    'quiet': '静か',
+    'noisy': '賑やか',
+    'warm': '暖かい',
+    'cold': '寒い'
+  };
 
-  // 場所の特定
-  if (allDetections.includes('kitchen')) {
-    environmentFactors.push('台所');
-  } else if (allDetections.includes('bathroom')) {
-    environmentFactors.push('浴室');
-  } else if (allDetections.includes('garden')) {
-    environmentFactors.push('庭');
+  for (const [key, value] of Object.entries(conditions)) {
+    if (allDetections.includes(key)) {
+      environmentFactors.push(value);
+    }
   }
 
   if (environmentFactors.length === 0) {
-    return '周囲の環境は特に危険な要素は見当たりません。';
+    return '普通の室内環境のようです。';
   }
 
-  return `周囲の環境は${environmentFactors.join('、')}です。`;
+  return `${environmentFactors.join('、')}な環境です。`;
 }
 
 function generateInformativeMessage(allDetections: string[], detectedSituations: string[]): string {
@@ -129,36 +162,24 @@ async function analyzeContent(
   safeSearch: any
 ): Promise<AnalysisResult> {
   const allDetections = [...objects, ...labels].map(item => item.toLowerCase());
-  const risks: string[] = [];
   const detectedSituations = new Set<string>();
 
-  // 検出されたオブジェクトから作業内容を推測
+  // 状況の検出
   for (const detection of allDetections) {
     if (DANGEROUS_SITUATIONS[detection as keyof typeof DANGEROUS_SITUATIONS]) {
       detectedSituations.add(detection);
-      risks.push(DANGEROUS_SITUATIONS[detection as keyof typeof DANGEROUS_SITUATIONS].risk);
     }
   }
 
-  // SafeSearch による危険検出
-  if (['LIKELY', 'VERY_LIKELY'].includes(safeSearch.violence)) {
-    risks.push('危険な行動が検出されました');
-  }
-  if (['LIKELY', 'VERY_LIKELY'].includes(safeSearch.medical)) {
-    risks.push('医療的な危険が検出されました');
-  }
-
-  // 特定の組み合わせの検出（一人での作業）
-  const isAlone = allDetections.includes('person') && 
-    objects.filter(obj => obj.toLowerCase() === 'person').length === 1;
-  if (isAlone) {
+  // 人の数を確認
+  const personCount = objects.filter(obj => obj.toLowerCase() === 'person').length;
+  if (personCount === 1) {
     detectedSituations.add('alone');
   }
 
   return {
     activity: generateActivityDescription(allDetections, detectedSituations),
     environment: generateEnvironmentDescription(allDetections, safeSearch),
-    risks,
     informativeMessage: generateInformativeMessage(allDetections, Array.from(detectedSituations))
   };
 }
@@ -186,7 +207,8 @@ export async function analyzeImage(imageData: ArrayBuffer): Promise<AnalysisResu
   }
 }
 
-export async function generateWarningAudio(analysis: AnalysisResult): Promise<ArrayBuffer> {
-  const textToSpeak = `${analysis.activity}\n${analysis.environment}\n${analysis.informativeMessage}`;
+export async function generateDescriptiveAudio(analysis: AnalysisResult): Promise<ArrayBuffer> {
+  // より自然な会話のような形式でテキストを構成
+  const textToSpeak = `${analysis.informativeMessage}\nそれから、${analysis.environment}\n${analysis.activity}`;
   return await elevenLabs.generateSpeech(textToSpeak);
 }
