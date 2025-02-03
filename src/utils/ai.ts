@@ -125,10 +125,10 @@ function generateInformativeMessage(allDetections: string[], detectedSituations:
   const messages: string[] = [];
   
   // 人の存在を確認
-  const personCount = allDetections.filter(item => item.toLowerCase() === 'person').length;
-  if (personCount > 0) {
-    messages.push(`${personCount}人の方がいらっしゃいますね。`);
-  }
+  // const personCount = allDetections.filter(item => item.toLowerCase() === 'person').length;
+  // if (personCount > 0) {
+  //   messages.push(`${personCount}人の方がいらっしゃいますね。`);
+  // }
 
   // 作業や活動の種類を確認
   const activities = new Set(allDetections.filter(item => 
