@@ -40,7 +40,7 @@ class GeminiAnalyzer:
         
         return response.text
     
-    def analyze_image(self, image_data: bytes) -> Dict[str, str]:
+    def analyze_image(self, image_data: bytes) -> str:
         """
         画像を分析し、作業内容、環境、注意点を抽出
         
@@ -48,56 +48,69 @@ class GeminiAnalyzer:
             image_data: 分析する画像のバイナリデータ
             
         Returns:
-            分析結果を含む辞書
+            JSON形式の分析結果
         """
+        import json
+
         # 作業内容・環境の分析
         environment_prompt = """
-        あなたは，画像から作業内容と環境を抽出することに特化したエージェントです．
-        この画像に写っている活動や作業，周辺環境について説明してください。
-        具体的に何をしているのか、場所の特徴、明るさ、広さ、天候などの環境要因を簡潔に説明してください。
+        あなたは、画像から作業内容およびその周辺環境を抽出することに特化したエージェントです。
+        与えられた画像に基づき、写っている活動や作業、そしてその環境について以下の各項目に沿って、簡潔かつ明確に説明してください。
+
+        【出力形式】
+
+        作業内容： 画像内で実施されている具体的な作業や活動を記述してください。
+        場所： 画像から推測される場所や環境（屋内、屋外、特定の施設など）を記述してください。
+        広さ： 画像に映っている空間の広がりや、狭さについて記述してください。
+        天候： 屋外の場合、画像から読み取れる天候（例：晴れ、曇り、雨など）を記述してください。
+
         """
         environment = self._analyze_with_prompt(image_data, environment_prompt)
         
         # 危険性の分析
         safety_prompt = f"""
-        あなたは，画像から危険性を抽出することに特化したエージェントです．
-        この画像の作業内容・環境を踏まえて，この状況で作業を行う場合にどのような危険があるか簡潔に説明してください。
-        作業内容・環境：{environment}
+        あなたは、画像から抽出された作業内容や環境情報に基づき、作業中に潜在する危険性を評価・抽出することに特化したエージェントです。
+        以下の「作業内容・環境」情報（{environment}）に基づいて、この状況下で作業を行う場合に考えられる具体的な危険を、簡潔かつ明確に説明してください。
+
+        【出力形式】
+
+        潜在危険： 画像の作業内容や環境から推測される、具体的な危険要因やリスク（例：転倒、機械的事故、感電、滑りやすい床、悪天候による視界不良など）を記述してください。
+        理由： それぞれの危険が発生する可能性の背景や理由を、簡潔に説明してください。
+
         """
         safety = self._analyze_with_prompt(image_data, safety_prompt)
         
         # 注意点の分析
         informative_prompt = f"""
-        あなたは，危険性を抽出し，優しい口調で提案することに特化したエージェントです．
-        危険性を踏まえて，この状況で気をつけるべきことを一言で提案してください。
-        危険性：{safety}
+あなたは、抽出された危険性情報に基づき、優しい口調でこの状況下で気をつけるべきことを一言で提案するエージェントです。
+以下の「危険性」情報（{safety}）を踏まえて、シンプルかつ親しみやすい一言で安全対策を提案してください。
         """
         informative_message = self._analyze_with_prompt(image_data, informative_prompt)
         
-        return {
-            "environment": environment,
-            "safety": safety,
-            "informative_message": informative_message
+        # 結果をJSON文字列として返す
+        result = {
+            "environment": environment.strip(),
+            "safety": safety.strip(),
+            "informative_message": informative_message.strip()
         }
+        return json.dumps(result, ensure_ascii=False)
 
 if __name__ == '__main__':
+    import json
+    import sys
+
     # テスト用コード
     project_id = os.getenv('GOOGLE_CLOUD_PROJECT')
-    print(f"Using project ID: {project_id}")
+    print(f"Using project ID: {project_id}", file=sys.stderr)
     
     analyzer = GeminiAnalyzer(
         project_id=project_id
     )
     
     # テスト画像の読み込みと分析
-    with open('test_image.png', 'rb') as f:
+    with open(sys.argv[1], 'rb') as f:
         image_data = f.read()
         result = analyzer.analyze_image(image_data)
         
-        print("=== 分析結果 ===")
-        print("【作業内容・環境】")
-        print(result['environment'])
-        print("\n【危険性】")
-        print(result['safety'])
-        print("\n【アドバイス】")
-        print(result['informative_message'])
+        # 結果をJSON文字列として出力
+        print(json.dumps(result, ensure_ascii=False))

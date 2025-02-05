@@ -20,10 +20,11 @@ class ElevenLabsClient:
         # デフォルトの音声設定
         self.voice_settings = {
             "stability": 0.5,
-            "similarity_boost": 0.5
+            "similarity_boost": 0.8,
+            "style": 0.3
         }
     
-    def generate_speech(self, text: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM") -> bytes:
+    def generate_speech(self, text: str, voice_id: str = "9gWehIE82YKoTXVxLkqF") -> bytes:
         """
         テキストを音声に変換
         
@@ -37,6 +38,7 @@ class ElevenLabsClient:
         url = f"{self.base_url}/text-to-speech/{voice_id}"
         
         data = {
+            "model_id": "eleven_multilingual_v2",
             "text": text,
             "voice_settings": self.voice_settings
         }

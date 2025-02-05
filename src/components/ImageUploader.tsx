@@ -8,8 +8,9 @@ export const ImageUploader = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<{
-    isDangerous: boolean;
-    situation?: string;
+    environment: string;
+    safety: string;
+    audio: string;
   } | null>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,26 +48,20 @@ export const ImageUploader = () => {
         throw new Error(errorData.error || `Analysis failed with status: ${response.status}`);
       }
 
-      if (response.status === 204) {
-        console.log('No dangerous situation detected');
-        setAnalysisResult({
-          isDangerous: false,
-          situation: '危険な状況は検出されませんでした'
-        });
-        return;
-      }
+      const result = await response.json();
+      console.log('Analysis result:', result);
+      setAnalysisResult(result);
 
-      const contentType = response.headers.get('Content-Type');
-      console.log('Content-Type:', contentType);
-
-      if (contentType && contentType.includes('audio')) {
-        console.log('Processing audio response...');
-        const audioBlob = await response.blob();
-        console.log('Audio blob size:', audioBlob.size);
-        
-        const audioUrl = URL.createObjectURL(new Blob([audioBlob], { type: 'audio/mpeg' }));
+      // Create and play audio from base64 string
+      if (result.audio) {
+        console.log('Processing audio...');
+        const audioBlob = new Blob(
+          [Buffer.from(result.audio, 'base64')],
+          { type: 'audio/mpeg' }
+        );
+        const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
-        
+
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
           console.log('Audio playback completed');
@@ -77,11 +72,6 @@ export const ImageUploader = () => {
           setError('音声の再生に失敗しました');
         };
 
-        setAnalysisResult({
-          isDangerous: true,
-          situation: '危険な状況が検出されました'
-        });
-        
         console.log('Starting audio playback...');
         try {
           await audio.play();
@@ -90,9 +80,6 @@ export const ImageUploader = () => {
           console.error('Failed to play audio:', playError);
           setError('音声の再生に失敗しました');
         }
-      } else {
-        console.log('Unexpected content type received');
-        setError('予期しない応答タイプを受信しました');
       }
     } catch (error) {
       console.error('Error analyzing image:', error);
@@ -128,12 +115,6 @@ export const ImageUploader = () => {
         </div>
       )}
 
-      {analysisResult && (
-        <div className={`w-full max-w-xl ${analysisResult.isDangerous ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'} p-4 rounded-lg`}>
-          {analysisResult.situation}
-        </div>
-      )}
-
       {selectedImage && (
         <div className="relative w-full max-w-xl h-64">
           <Image
@@ -142,6 +123,20 @@ export const ImageUploader = () => {
             fill
             className="object-contain rounded-lg"
           />
+        </div>
+      )}
+
+      {analysisResult && (
+        <div className="w-full max-w-xl space-y-4">
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-2 text-gray-800">作業内容・環境</h3>
+            <p className="text-gray-700 whitespace-pre-wrap">{analysisResult.environment}</p>
+          </div>
+
+          <div className="bg-yellow-50 p-6 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-2 text-yellow-800">危険性</h3>
+            <p className="text-gray-700 whitespace-pre-wrap">{analysisResult.safety}</p>
+          </div>
         </div>
       )}
 
