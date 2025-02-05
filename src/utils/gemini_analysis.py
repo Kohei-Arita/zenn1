@@ -50,30 +50,33 @@ class GeminiAnalyzer:
         Returns:
             分析結果を含む辞書
         """
-        # 作業内容の分析
-        activity_prompt = """
-        この画像に写っている活動や作業について説明してください。
-        具体的に何をしているのか、どのような状況なのかを簡潔に説明してください。
-        """
-        activity = self._analyze_with_prompt(image_data, activity_prompt)
-        
-        # 環境の分析
+        # 作業内容・環境の分析
         environment_prompt = """
-        この画像の周辺環境について説明してください。
-        場所の特徴、明るさ、広さ、天候などの環境要因を簡潔に説明してください。
+        あなたは，画像から作業内容と環境を抽出することに特化したエージェントです．
+        この画像に写っている活動や作業，周辺環境について説明してください。
+        具体的に何をしているのか、場所の特徴、明るさ、広さ、天候などの環境要因を簡潔に説明してください。
         """
         environment = self._analyze_with_prompt(image_data, environment_prompt)
         
-        # 注意点の分析
-        safety_prompt = """
-        この状況で気をつけるべきことを説明してください。
-        安全面での注意点や、より良い活動のためのアドバイスを優しい口調で提案してください。
+        # 危険性の分析
+        safety_prompt = f"""
+        あなたは，画像から危険性を抽出することに特化したエージェントです．
+        この画像の作業内容・環境を踏まえて，この状況で作業を行う場合にどのような危険があるか簡潔に説明してください。
+        作業内容・環境：{environment}
         """
-        informative_message = self._analyze_with_prompt(image_data, safety_prompt)
+        safety = self._analyze_with_prompt(image_data, safety_prompt)
+        
+        # 注意点の分析
+        informative_prompt = f"""
+        あなたは，危険性を抽出し，優しい口調で提案することに特化したエージェントです．
+        危険性を踏まえて，この状況で気をつけるべきことを一言で提案してください。
+        危険性：{safety}
+        """
+        informative_message = self._analyze_with_prompt(image_data, informative_prompt)
         
         return {
-            "activity": activity,
             "environment": environment,
+            "safety": safety,
             "informative_message": informative_message
         }
 
@@ -92,9 +95,9 @@ if __name__ == '__main__':
         result = analyzer.analyze_image(image_data)
         
         print("=== 分析結果 ===")
-        print("【作業内容】")
-        print(result['activity'])
-        print("\n【環境】")
+        print("【作業内容・環境】")
         print(result['environment'])
+        print("\n【危険性】")
+        print(result['safety'])
         print("\n【アドバイス】")
         print(result['informative_message'])
