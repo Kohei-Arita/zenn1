@@ -82,8 +82,8 @@ class GeminiAnalyzer:
         
         # 注意点の分析
         informative_prompt = f"""
-あなたは、抽出された危険性情報に基づき、優しい口調でこの状況下で気をつけるべきことを一言で提案するエージェントです。
-以下の「危険性」情報（{safety}）を踏まえて、シンプルかつ親しみやすい一言で安全対策を提案してください。
+        あなたは、抽出された危険性情報に基づき、優しい口調でこの状況下で気をつけるべきことを一言で提案するエージェントです。
+        以下の「危険性」情報（{safety}）を踏まえて、シンプルかつ親しみやすい一言で安全対策を提案してください。
         """
         informative_message = self._analyze_with_prompt(image_data, informative_prompt)
         
