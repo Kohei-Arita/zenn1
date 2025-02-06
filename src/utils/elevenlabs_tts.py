@@ -24,7 +24,7 @@ class ElevenLabsClient:
             "style": 0.3
         }
     
-    def generate_speech(self, text: str, voice_id: str = "9gWehIE82YKoTXVxLkqF") -> bytes:
+    def generate_speech(self, text: str, voice_id: str = "iP95p4xoKVk53GoZ742B") -> bytes:
         """
         テキストを音声に変換
         
