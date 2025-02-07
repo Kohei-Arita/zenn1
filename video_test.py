@@ -161,7 +161,7 @@ class MotionDetector:
 
 # メイン処理
 if __name__ == '__main__':
-    url = 'http://192.168.0.20/video.mjpg'  # URLは実際のストリームURLに合わせて変更してください
+    url = 'http://192.168.0.90:8080/video.mjpg'  # URLは実際のストリームURLに合わせて変更してください
     detector = MotionDetector(url)
     detector.run()
 
