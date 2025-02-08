@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, onValue } from 'firebase/database';
+import { initializeApp, getApps } from 'firebase/app';
+import { getDatabase, ref, onValue, Database } from 'firebase/database';
+
+interface AnalysisData {
+  environment: string;
+  safety: string;
+  informative_message: string;
+}
 
 // Firebaseの設定
 const firebaseConfig = {
@@ -16,41 +22,142 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+// Firebaseの初期化
+// console.log('🔥 Firebase設定:', firebaseConfig);
 
-interface AnalysisData {
-  environment: string;
-  safety: string;
-  informative_message: string;
+let database: Database;
+
+try {
+  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  console.log('✅ Firebase Appの初期化成功');
+  
+  database = getDatabase(app);
+  console.log('✅ Realtime Databaseの初期化成功');
+} catch (error) {
+  console.error('❌ Firebaseの初期化エラー:', error);
 }
 
 export default function Home() {
+  console.log('🟢 Homeコンポーネントがレンダリングされました');
+  
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>('');
+  const [isConnected, setIsConnected] = useState<boolean>(false);
 
+  // Firebaseの接続状態を監視
   useEffect(() => {
-    // Firebase Realtime Databaseの監視
-    const analysisRef = ref(database, 'analysis');
-    const unsubscribe = onValue(analysisRef, (snapshot) => {
-      const data = snapshot.val();
-      console.log(data);
-      if (data) {
-        setAnalysisData(data);
-        // 新しい音声が生成されたら再生
-        if (data.audio_url) {
-          setAudioUrl(data.audio_url);
-          const audio = new Audio(data.audio_url);
-          audio.play();
+    let unsubscribe: (() => void) | undefined;
+
+    if (!database) {
+      console.error('❌ databaseが初期化されていません');
+      return;
+    }
+
+    try {
+      const connectedRef = ref(database, '.info/connected');
+      console.log('🔗 接続監視を開始:', connectedRef.toString());
+
+      unsubscribe = onValue(connectedRef, 
+        (snap) => {
+          const connected = snap.val() === true;
+          console.log(`接続状態: ${connected ? '✅ 接続中' : '❌ 未接続'}`);
+          setIsConnected(connected);
+        },
+        (error) => {
+          console.error('❌ 接続監視エラー:', error);
+          setIsConnected(false);
         }
-      }
-    });
+      );
+    } catch (error) {
+      console.error('❌ 接続監視の設定エラー:', error);
+      setIsConnected(false);
+    }
 
     return () => {
-      unsubscribe();
+      if (unsubscribe) {
+        console.log('🔔 接続監視を終了します');
+        unsubscribe();
+      }
     };
-  }, []);
+  }, [database]); // databaseを依存配列に追加
+
+  // データの監視
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    if (!database) {
+      console.log('🔔 データ監視: databaseが初期化されていません');
+      return;
+    }
+
+    if (!isConnected) {
+      console.log('🔔 データ監視: 接続待機中...');
+      return;
+    }
+
+    console.log('📝 分析データの監視を開始...');
+    const geminiOutputsRef = ref(database, 'gemini_outputs');
+    console.log('監視パス:', geminiOutputsRef.toString());
+
+    try {
+      unsubscribe = onValue(geminiOutputsRef, (snapshot) => {
+        console.log('📥 データ更新を検出しました');
+        const data = snapshot.val();
+        console.log('受信したデータ:', data);
+
+        if (data) {
+          // 最新のデータを取得
+          const motionFolders = Object.keys(data);
+          if (motionFolders.length > 0) {
+            const latestMotion = motionFolders[motionFolders.length - 1];
+            const motionData = data[latestMotion];
+
+            if (motionData) {
+              console.log('✅ 新しい分析データ:', {
+                timestamp: new Date().toISOString(),
+                folder: latestMotion,
+                environment: motionData["environment"],
+                safety: motionData["safety"],
+                informative_message: motionData["informative_message"]
+              });
+
+              setAnalysisData({
+                environment: motionData["environment"],
+                safety: motionData["safety"],
+                informative_message: motionData["informative_message"]
+              });
+              
+              if (motionData.audio_url) {
+                console.log('🔊 音声URL:', motionData.audio_url);
+                setAudioUrl(motionData.audio_url);
+                const audio = new Audio(motionData.audio_url);
+                audio.play().catch(error => {
+                  console.error('❌ 音声再生エラー:', error);
+                });
+              }
+            } else {
+              console.log('⚠️ JSONデータが見つかりません:', latestMotion);
+            }
+          } else {
+            console.log('⚠️ motionフォルダが見つかりません');
+          }
+        } else {
+          console.log('⚠️ データが空または存在しません');
+        }
+      }, (error) => {
+        console.error('❌ データ監視エラー:', error);
+      });
+
+      return () => {
+        console.log('🔔 データ監視を終了します');
+        unsubscribe();
+      };
+    } catch (error) {
+      console.error('❌ データ監視の設定エラー:', error);
+      return () => {};
+    }
+
+  }, [database, isConnected]); // databaseとisConnectedを依存配列に追加
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -61,7 +168,7 @@ export default function Home() {
             <h2 className="text-2xl font-bold mb-4">リアルタイム監視</h2>
             <div className="aspect-video relative bg-black rounded-lg overflow-hidden">
               <img
-                src="http://192.168.1.38:8080/video.mjpg"
+                src="http://192.168.0.192:8080/video.mjpg"
                 alt="Camera Feed"
                 className="absolute inset-0 w-full h-full object-cover"
               />
