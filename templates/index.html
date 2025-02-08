@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作業監視システム</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        .video-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .info-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        img {
+            width: 100%;
+            border-radius: 5px;
+        }
+        h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .alert {
+            background-color: #ff4444;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="video-container">
+            <h2>リアルタイム映像</h2>
+            <img src="{{ url_for('video_feed') }}" alt="Video stream">
+        </div>
+        <div class="info-container">
+            <h2>分析情報</h2>
+            <div id="environment"></div>
+            <div id="safety"></div>
+            <div id="message" class="alert"></div>
+        </div>
+    </div>
+
+    <script>
+        // Firebaseの設定
+        const firebaseConfig = {
+            // あなたのFirebase設定をここに追加
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // リアルタイムデータベースの監視
+        const analysisRef = database.ref('analysis');
+        analysisRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.getElementById('environment').innerHTML = `
+                    <h3>作業環境</h3>
+                    <p>${data.environment}</p>
+                `;
+                document.getElementById('safety').innerHTML = `
+                    <h3>安全性</h3>
+                    <p>${data.safety}</p>
+                `;
+                
+                // 危険性メッセージの表示と音声再生
+                const messageElement = document.getElementById('message');
+                messageElement.textContent = data.informative_message;
+                messageElement.style.display = 'block';
+                
+                // 音声ファイルの再生（サーバーで生成された場合）
+                const audio = new Audio('/static/output.mp3');
+                audio.play();
+            }
+        });
+    </script>
+</body>
+</html>
