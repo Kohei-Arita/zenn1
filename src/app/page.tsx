@@ -167,7 +167,7 @@ export default function Home() {
           {/* カメラフィード */}
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-2xl font-bold mb-4">リアルタイム監視</h2>
-            <div className="aspect-video relative bg-black rounded-lg overflow-hidden">
+            <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
               <img
                 src="http://192.168.0.192:8080/video.mjpg"
                 alt="Camera Feed"
