@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getDatabase, ref, onValue, Database } from 'firebase/database';
+import ReactMarkdown from 'react-markdown';
 
 interface AnalysisData {
   environment: string;
@@ -182,11 +183,15 @@ export default function Home() {
               <div className="space-y-4">
                 <div>
                   <h3 className="text-lg font-semibold">作業環境</h3>
-                  <p className="text-gray-600">{analysisData.environment}</p>
+                  <div className="prose prose-sm max-w-none text-gray-600 prose-headings:text-blue-600 prose-h2:font-semibold prose-h3:font-semibold">
+                    <ReactMarkdown>{analysisData.environment}</ReactMarkdown>
+                  </div>
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold">安全性</h3>
-                  <p className="text-gray-600">{analysisData.safety}</p>
+                  <div className="prose prose-sm max-w-none text-gray-600 prose-headings:text-blue-600 prose-h2:font-semibold prose-h3:font-semibold">
+                    <ReactMarkdown>{analysisData.safety}</ReactMarkdown>
+                  </div>
                 </div>
                 {analysisData.informative_message && (
                   <div className="bg-red-100 border-l-4 border-red-500 p-4">
