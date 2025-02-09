@@ -169,7 +169,7 @@ export default function Home() {
             <h2 className="text-2xl font-bold mb-4">リアルタイム監視</h2>
             <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '4/3' }}>
               <img
-                src="http://192.168.0.192:8080/video.mjpg"
+                src={process.env.NEXT_PUBLIC_IP_CAMERA_URL}
                 alt="Camera Feed"
                 className="absolute inset-0 w-full h-full object-cover"
               />

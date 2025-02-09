@@ -4,6 +4,13 @@ import os
 from datetime import datetime
 from google.cloud import storage
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env.local
+load_dotenv('.env.local')
+import dotenv
+
+dotenv.load_dotenv()
 
 class MotionDetector:
     def __init__(self, url, buffer_seconds=5, motion_threshold=1000, min_area=500):
@@ -28,6 +35,8 @@ class MotionDetector:
         self.is_recording = False
         self.motion_detected = False
         self.last_motion_time = None
+        self.cooldown_period = 20  # 20秒のクールダウン期間
+        self.last_detection_time = 0  # 最後に動体を検知した時刻
         
         # GCS設定
         self.storage_client = storage.Client()
@@ -121,8 +130,15 @@ class MotionDetector:
                 time.sleep(1)
                 continue
 
-            # 動体検知
-            current_motion = self.detect_motion(frame)
+            # クールダウン期間中かチェック
+            current_time = time.time()
+            in_cooldown = (current_time - self.last_detection_time) < self.cooldown_period
+            
+            # 動体検知（クールダウン期間中は検知しない）
+            if not in_cooldown:
+                current_motion = self.detect_motion(frame)
+            else:
+                current_motion = False
             
             # フレームバッファの管理
             self.frame_buffer.append(frame)
@@ -135,6 +151,8 @@ class MotionDetector:
                 if not self.motion_detected:
                     print('動体を検知しました')
                     self.motion_detected = True
+                    self.last_detection_time = current_time  # 検知時刻を更新
+                    print(f'次の検知可能まで {self.cooldown_period} 秒待機します')
             elif self.motion_detected:
                 if time.time() - self.last_motion_time > self.buffer_seconds:
                     print('動体検知が終了しました')
@@ -161,7 +179,9 @@ class MotionDetector:
 
 # メイン処理
 if __name__ == '__main__':
-    url = 'http://192.168.0.192:8080/video.mjpg'  # URLは実際のストリームURLに合わせて変更してください
+    url = os.getenv('NEXT_PUBLIC_IP_CAMERA_URL')  # Get URL from environment variable
+    if not url:
+        raise ValueError('NEXT_PUBLIC_IP_CAMERA_URL environment variable is not set')
     detector = MotionDetector(url)
     detector.run()
 
