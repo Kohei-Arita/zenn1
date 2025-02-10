@@ -35,7 +35,7 @@ class MotionDetector:
         self.is_recording = False
         self.motion_detected = False
         self.last_motion_time = None
-        self.cooldown_period = 20  # 20秒のクールダウン期間
+        self.cooldown_period = 10  # 10秒のクールダウン期間
         self.last_detection_time = 0  # 最後に動体を検知した時刻
         
         # GCS設定

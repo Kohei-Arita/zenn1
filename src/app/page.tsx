@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getDatabase, ref, onValue, Database } from 'firebase/database';
 import ReactMarkdown from 'react-markdown';
+import { ElevenLabsClient } from '../utils/elevenlabs';
 
 interface AnalysisData {
   environment: string;
@@ -44,6 +45,7 @@ export default function Home() {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [elevenLabs] = useState(() => new ElevenLabsClient(process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || ''));
 
   // Firebaseの接続状態を監視
   useEffect(() => {
@@ -122,19 +124,26 @@ export default function Home() {
                 informative_message: motionData["informative_message"]
               });
 
-              setAnalysisData({
+              const newData = {
                 environment: motionData["environment"],
                 safety: motionData["safety"],
                 informative_message: motionData["informative_message"]
-              });
-              
-              if (motionData.audio_url) {
-                console.log('🔊 音声URL:', motionData.audio_url);
-                setAudioUrl(motionData.audio_url);
-                const audio = new Audio(motionData.audio_url);
-                audio.play().catch(error => {
-                  console.error('❌ 音声再生エラー:', error);
-                });
+              };
+              setAnalysisData(newData);
+
+              // Generate speech for the new informative message
+              if (newData.informative_message) {
+                elevenLabs.generateSpeech(newData.informative_message)
+                  .then(audioData => {
+                    const blob = new Blob([audioData], { type: 'audio/mpeg' });
+                    const url = URL.createObjectURL(blob);
+                    setAudioUrl(url);
+                    const audio = new Audio(url);
+                    audio.play();
+                  })
+                  .catch(error => {
+                    console.error('❌ 音声生成エラー:', error);
+                  });
               }
             } else {
               console.log('⚠️ JSONデータが見つかりません:', latestMotion);
