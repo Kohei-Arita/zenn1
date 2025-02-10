@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/motion_clips/
 
 # next.js
 /.next/
